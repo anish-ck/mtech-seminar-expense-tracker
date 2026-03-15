@@ -1,0 +1,18 @@
+services:
+  expense-service:
+    build:
+      context: ./expense-service
+    container_name: expense-service
+    ports:
+      - "8000:8080"
+
+  summary-service:
+    build:
+      context: ./summary-service
+    container_name: summary-service
+    environment:
+      - EXPENSE_SERVICE_URL=http://expense-service:8080
+    depends_on:
+      - expense-service
+    ports:
+      - "8001:8080"

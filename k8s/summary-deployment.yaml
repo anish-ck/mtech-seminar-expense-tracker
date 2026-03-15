@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: summary-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: summary-service
+  template:
+    metadata:
+      labels:
+        app: summary-service
+    spec:
+      containers:
+        - name: summary-service
+          image: summary-service:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: EXPENSE_SERVICE_URL
+              value: http://expense-service:8000
+          ports:
+            - containerPort: 8001
