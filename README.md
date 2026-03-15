@@ -1,82 +1,112 @@
 # Expense Tracker (Microservices)
 
-A very simple, beginner-friendly expense tracker using:
+A beginner-friendly expense tracker that demonstrates a simple microservices architecture with FastAPI, SQLite, Docker, Cloud Run deployment, Kubernetes manifests, and GitHub Actions CI/CD.
 
-- Frontend: plain HTML/CSS/JavaScript
-- Backend: FastAPI microservices
-- Database: SQLite with SQLAlchemy (in Expense Service)
-- Containers: Docker
+## What This Project Shows
+
+- Microservices architecture with clear service boundaries
+- FastAPI backend services
+- SQLite + SQLAlchemy in a dedicated data service
+- Static frontend using plain HTML/CSS/JavaScript
+- Docker-based local and cloud-friendly packaging
+- Cloud Run deployment for both services
+- GitHub Actions CI/CD workflow
+
+## Architecture
+
+There are two backend microservices:
+
+1. Expense Service
+- Owns expense data (SQLite)
+- Handles create, list, delete
+- Endpoints:
+  - `POST /expenses`
+  - `GET /expenses`
+  - `DELETE /expenses/{id}`
+
+2. Summary Service
+- Stateless aggregation service
+- Calls Expense Service and computes totals
+- Endpoint:
+  - `GET /summary`
+
+Frontend:
+- Static app that allows add/list/delete
+- Displays total by calling Summary Service
+
+## Tech Stack
+
+Frontend:
+- HTML
+- CSS
+- Vanilla JavaScript
+
+Backend:
+- FastAPI
+- Uvicorn
+
+Database:
+- SQLite
+- SQLAlchemy ORM
+
+Containerization:
+- Docker
+- Docker Compose
+
+Cloud:
+- Google Cloud Run
+
+CI/CD:
+- GitHub Actions
 
 ## Project Structure
 
 ```text
 mtech_seminar/
-│
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       └── deploy-cloud-run.yml
 ├── frontend/
 │   ├── index.html
 │   ├── style.css
 │   └── app.js
-│
 ├── expense-service/
 │   ├── main.py
 │   ├── models.py
 │   ├── database.py
 │   ├── requirements.txt
 │   └── Dockerfile
-│
 ├── summary-service/
 │   ├── main.py
 │   ├── requirements.txt
 │   └── Dockerfile
-│
 ├── k8s/
 │   ├── expense-deployment.yaml
 │   ├── summary-deployment.yaml
 │   └── services.yaml
-│
 ├── docker-compose.yml
+├── .gitignore
 └── README.md
 ```
 
-## Microservices
+## Data Model
 
-### 1) Expense Service (Port 8000)
-
-Responsibilities:
-- Create expenses
-- List expenses
-- Delete expenses
-
-Endpoints:
-- `POST /expenses`
-- `GET /expenses`
-- `DELETE /expenses/{id}`
-
-Data fields:
+Expense fields:
 - `id` (integer primary key)
 - `title` (string)
 - `amount` (float)
 - `category` (string)
 - `created_at` (datetime)
 
-### 2) Summary Service (Port 8001)
+SQLite file location:
+- `expense-service/expenses.db`
 
-Responsibilities:
-- Calculate total expenses
+## Local Run (Without Docker)
 
-Endpoint:
-- `GET /summary`
+Open three terminals from project root.
 
-Behavior:
-- Calls Expense Service `GET /expenses`
-- Calculates total amount
-- Returns total + count
-
-## Run Locally (Without Docker)
-
-Open 2 terminals.
-
-### Terminal 1: Expense Service
+1. Run Expense Service
 
 ```powershell
 cd expense-service
@@ -86,7 +116,7 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
-### Terminal 2: Summary Service
+2. Run Summary Service
 
 ```powershell
 cd summary-service
@@ -97,21 +127,17 @@ $env:EXPENSE_SERVICE_URL="http://localhost:8000"
 uvicorn main:app --reload --port 8001
 ```
 
-### Frontend
-
-Open `frontend/index.html` directly in your browser.
-
-Recommended (for cleaner local behavior):
+3. Run Frontend
 
 ```powershell
 cd frontend
 python -m http.server 5500
 ```
 
-Then open:
+Open:
 - `http://localhost:5500`
 
-## Quick API Tests
+## API Quick Tests
 
 Create expense:
 
@@ -131,15 +157,13 @@ Get summary:
 Invoke-RestMethod -Method Get -Uri "http://localhost:8001/summary"
 ```
 
-Delete expense (example id=1):
+Delete expense:
 
 ```powershell
 Invoke-RestMethod -Method Delete -Uri "http://localhost:8000/expenses/1"
 ```
 
-## Run With Docker (Individual Services)
-
-From the project root folder.
+## Docker Run
 
 Build images:
 
@@ -155,7 +179,11 @@ docker run -d --name expense-service -p 8000:8080 expense-service
 docker run -d --name summary-service -e EXPENSE_SERVICE_URL="http://host.docker.internal:8000" -p 8001:8080 summary-service
 ```
 
-## Run With Docker Compose (Optional)
+Test:
+- `http://localhost:8000/expenses`
+- `http://localhost:8001/summary`
+
+## Docker Compose Run
 
 ```powershell
 docker compose up --build
@@ -165,77 +193,42 @@ Services:
 - Expense Service: `http://localhost:8000`
 - Summary Service: `http://localhost:8001`
 
-## Notes For Cloud Run / Kubernetes Later
+## Cloud Run Deployment
 
-- Move service URLs to environment variables (already done for Summary Service).
-- Keep Summary Service stateless (already done).
-- SQLite is fine for local demo, but for cloud production use a managed database.
-- Each service has its own Dockerfile, making container deployment straightforward.
+Both services are deployable to Cloud Run and listen on `$PORT` (default `8080`).
 
-## Cloud Run Deploy (Console + CLI)
+Recommended settings:
+- Region: `us-west1`
+- Authentication: Allow public access (for demo)
+- Billing: Request-based
+- Ingress: All
+- Auto scaling: min instances `0`
 
-Important:
-- Deploy two Cloud Run services, not one:
-	- `expense-service`
-	- `summary-service`
-- Cloud Run sends traffic to `$PORT` (default `8080`), which is already configured in both Dockerfiles.
+Deploy order:
+1. Deploy `expense-service`
+2. Get expense service URL
+3. Deploy `summary-service` with env var:
+   - `EXPENSE_SERVICE_URL=<expense-service-url>`
 
-### Recommended Console Values
+## GitHub Pages (Frontend)
 
-For both services:
-- Region: `us-west1` (or your preferred region)
-- Authentication: `Allow public access` (for demo)
-- Billing: `Request-based`
-- Scaling: `Auto scaling`, min instances `0`
-- Ingress: `All`
-- Container port: `8080`
+Frontend can be hosted on GitHub Pages.
 
-For `summary-service` only:
-- Variables & Secrets:
-	- `EXPENSE_SERVICE_URL` = `https://<expense-service-url>`
+If you use Pages with branch publishing, ensure the published folder contains:
+- `index.html`
+- `style.css`
+- `app.js`
 
-### Deploy With gcloud CLI (Simple)
+Your frontend currently calls Cloud Run APIs from `frontend/app.js`.
 
-Set your project and region:
+## Kubernetes Manifests
 
-```powershell
-gcloud config set project YOUR_PROJECT_ID
-gcloud config set run/region us-west1
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
-```
-
-Deploy expense service first:
-
-```powershell
-gcloud run deploy expense-service --source ./expense-service --region us-west1 --allow-unauthenticated
-```
-
-Get the deployed expense URL:
-
-```powershell
-gcloud run services describe expense-service --region us-west1 --format="value(status.url)"
-```
-
-Deploy summary service with expense URL env var:
-
-```powershell
-gcloud run deploy summary-service --source ./summary-service --region us-west1 --allow-unauthenticated --set-env-vars EXPENSE_SERVICE_URL=https://YOUR_EXPENSE_SERVICE_URL
-```
-
-Test endpoints:
-
-```powershell
-Invoke-RestMethod -Method Get -Uri "https://YOUR_EXPENSE_SERVICE_URL/expenses"
-Invoke-RestMethod -Method Get -Uri "https://YOUR_SUMMARY_SERVICE_URL/summary"
-```
-
-## Kubernetes Deploy (Basic)
-
-Build and push images to your registry first, then update image names in:
+Kubernetes files are included under `k8s/`:
 - `k8s/expense-deployment.yaml`
 - `k8s/summary-deployment.yaml`
+- `k8s/services.yaml`
 
-Apply manifests:
+Apply:
 
 ```powershell
 kubectl apply -f k8s/expense-deployment.yaml
@@ -243,50 +236,28 @@ kubectl apply -f k8s/summary-deployment.yaml
 kubectl apply -f k8s/services.yaml
 ```
 
-Check resources:
-
-```powershell
-kubectl get deployments
-kubectl get pods
-kubectl get services
-```
-
-Optional local test with port-forward:
-
-```powershell
-kubectl port-forward service/expense-service 8000:8000
-kubectl port-forward service/summary-service 8001:8001
-```
-
 ## GitHub Actions CI/CD
 
-Two workflows are included:
-
+Workflows:
 - `.github/workflows/ci.yml`
-	- Runs on every push to `main` and on pull requests.
-	- Builds both Docker images.
-	- Runs smoke tests against `GET /expenses` and `GET /summary`.
+  - Runs on PR and push to `main`
+  - Builds service images
+  - Runs smoke tests for `/expenses` and `/summary`
 
 - `.github/workflows/deploy-cloud-run.yml`
-	- Runs on push to `main` (and manual trigger with `workflow_dispatch`).
-	- Builds and pushes images to Artifact Registry.
-	- Deploys `expense-service` then `summary-service` to Cloud Run.
-	- Automatically wires `EXPENSE_SERVICE_URL` in `summary-service`.
+  - Runs on push to `main` and manual dispatch
+  - Authenticates to GCP with service account JSON secret
+  - Builds and pushes images to Artifact Registry
+  - Deploys both Cloud Run services
 
-### Required GitHub Secrets
-
-Add these repository secrets in GitHub:
-
+Required GitHub repository secrets:
+- `GCP_SA_KEY` (full JSON key content)
 - `GCP_PROJECT_ID`
 - `GCP_REGION`
-- `GCP_SA_KEY`
-
-`GCP_SA_KEY` must contain the full JSON content of the service account key file.
 
 ### Service account roles
 
 Grant this service account roles such as:
-
 - Cloud Run Admin
 - Cloud Build Editor
 - Artifact Registry Writer
@@ -294,4 +265,21 @@ Grant this service account roles such as:
 
 After this setup, each push to `main` will run full CI and deploy automatically.
 
-Security note: rotate/delete old service account keys if they were shared or exposed.
+## Security Notes
+
+- Do not commit `.venv`, `.db`, or secrets
+- Rotate service account keys if exposed
+- Prefer Workload Identity Federation for production (no long-lived JSON key)
+
+## Known Limitation
+
+SQLite on Cloud Run is not durable for production workloads.
+For production use, migrate to a managed database (for example Cloud SQL PostgreSQL).
+
+## Future Improvements
+
+- Add update/edit endpoint for expenses
+- Add category filters and reporting
+- Add API auth
+- Add frontend environment config and build pipeline
+- Migrate SQLite to managed DB
