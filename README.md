@@ -193,6 +193,30 @@ Services:
 - Expense Service: `http://localhost:8000`
 - Summary Service: `http://localhost:8001`
 
+## Push Local Docker Images to Artifact Registry
+
+Use this flow to push images built on your machine to Google Artifact Registry.
+
+1. Authenticate Docker to Artifact Registry:
+
+```powershell
+gcloud auth configure-docker us-west1-docker.pkg.dev
+```
+
+2. Tag local images:
+
+```powershell
+docker tag expense-service:latest us-west1-docker.pkg.dev/feisty-dolphin-485013-r5/expense-tracker/expense-service:latest
+docker tag summary-service:latest us-west1-docker.pkg.dev/feisty-dolphin-485013-r5/expense-tracker/summary-service:latest
+```
+
+3. Push tagged images:
+
+```powershell
+docker push us-west1-docker.pkg.dev/feisty-dolphin-485013-r5/expense-tracker/expense-service:latest
+docker push us-west1-docker.pkg.dev/feisty-dolphin-485013-r5/expense-tracker/summary-service:latest
+```
+
 ## Cloud Run Deployment
 
 Both services are deployable to Cloud Run and listen on `$PORT` (default `8080`).
@@ -264,6 +288,57 @@ Grant this service account roles such as:
 - Service Account User
 
 After this setup, each push to `main` will run full CI and deploy automatically.
+
+## Git Commands
+
+Use these commands from the project root.
+
+### First-time setup
+
+```powershell
+git init
+git branch -M main
+git remote add origin https://github.com/anish-ck/mtech-seminar-expense-tracker.git
+```
+
+If `origin` already exists:
+
+```powershell
+git remote set-url origin https://github.com/anish-ck/mtech-seminar-expense-tracker.git
+```
+
+### Daily workflow (add, commit, pull, push)
+
+```powershell
+git status
+git add .
+git commit -m "your message"
+git pull origin main --rebase
+git push origin main
+```
+
+### If push is rejected (non-fast-forward)
+
+```powershell
+git pull origin main --rebase
+git push origin main
+```
+
+### If rebase stops with conflict
+
+```powershell
+git status
+# resolve files manually, then:
+git add .
+git rebase --continue
+git push origin main
+```
+
+To cancel the current rebase:
+
+```powershell
+git rebase --abort
+```
 
 ## Security Notes
 
