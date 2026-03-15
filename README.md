@@ -278,12 +278,14 @@ Two workflows are included:
 Add these repository secrets in GitHub:
 
 - `GCP_PROJECT_ID`
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- `GCP_SERVICE_ACCOUNT`
+- `GCP_REGION`
+- `GCP_SA_KEY`
 
-### One-time GCP IAM setup (for GitHub OIDC)
+`GCP_SA_KEY` must contain the full JSON content of the service account key file.
 
-Use the Google Cloud docs flow for GitHub OIDC and grant the service account permissions such as:
+### Service account roles
+
+Grant this service account roles such as:
 
 - Cloud Run Admin
 - Cloud Build Editor
@@ -291,3 +293,5 @@ Use the Google Cloud docs flow for GitHub OIDC and grant the service account per
 - Service Account User
 
 After this setup, each push to `main` will run full CI and deploy automatically.
+
+Security note: rotate/delete old service account keys if they were shared or exposed.
