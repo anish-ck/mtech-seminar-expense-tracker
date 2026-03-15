@@ -257,3 +257,37 @@ Optional local test with port-forward:
 kubectl port-forward service/expense-service 8000:8000
 kubectl port-forward service/summary-service 8001:8001
 ```
+
+## GitHub Actions CI/CD
+
+Two workflows are included:
+
+- `.github/workflows/ci.yml`
+	- Runs on every push to `main` and on pull requests.
+	- Builds both Docker images.
+	- Runs smoke tests against `GET /expenses` and `GET /summary`.
+
+- `.github/workflows/deploy-cloud-run.yml`
+	- Runs on push to `main` (and manual trigger with `workflow_dispatch`).
+	- Builds and pushes images to Artifact Registry.
+	- Deploys `expense-service` then `summary-service` to Cloud Run.
+	- Automatically wires `EXPENSE_SERVICE_URL` in `summary-service`.
+
+### Required GitHub Secrets
+
+Add these repository secrets in GitHub:
+
+- `GCP_PROJECT_ID`
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_SERVICE_ACCOUNT`
+
+### One-time GCP IAM setup (for GitHub OIDC)
+
+Use the Google Cloud docs flow for GitHub OIDC and grant the service account permissions such as:
+
+- Cloud Run Admin
+- Cloud Build Editor
+- Artifact Registry Writer
+- Service Account User
+
+After this setup, each push to `main` will run full CI and deploy automatically.

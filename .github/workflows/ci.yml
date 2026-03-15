@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate-services:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker images
+        run: |
+          docker build -t expense-service:ci ./expense-service
+          docker build -t summary-service:ci ./summary-service
+
+      - name: Run service smoke tests
+        run: |
+          docker network create expense-net
+
+          docker run -d --rm \
+            --name expense-service \
+            --network expense-net \
+            -p 8000:8080 \
+            expense-service:ci
+
+          docker run -d --rm \
+            --name summary-service \
+            --network expense-net \
+            -e EXPENSE_SERVICE_URL=http://expense-service:8080 \
+            -p 8001:8080 \
+            summary-service:ci
+
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:8000/expenses >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+
+          curl -fsS http://127.0.0.1:8000/expenses
+          curl -fsS http://127.0.0.1:8001/summary

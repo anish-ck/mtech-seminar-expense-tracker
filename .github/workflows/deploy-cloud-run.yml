@@ -1,0 +1,79 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  REGION: us-west1
+  AR_REPOSITORY: expense-tracker
+  EXPENSE_SERVICE: expense-service
+  SUMMARY_SERVICE: summary-service
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push expense image
+        run: |
+          gcloud builds submit ./expense-service \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --tag=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.EXPENSE_SERVICE }}:latest
+
+      - name: Build and push summary image
+        run: |
+          gcloud builds submit ./summary-service \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --tag=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.SUMMARY_SERVICE }}:latest
+
+      - name: Deploy expense service
+        id: deploy_expense
+        run: |
+          EXPENSE_URL=$(gcloud run deploy ${{ env.EXPENSE_SERVICE }} \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.EXPENSE_SERVICE }}:latest \
+            --allow-unauthenticated \
+            --quiet \
+            --format='value(status.url)')
+          echo "expense_url=$EXPENSE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy summary service
+        run: |
+          gcloud run deploy ${{ env.SUMMARY_SERVICE }} \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.SUMMARY_SERVICE }}:latest \
+            --allow-unauthenticated \
+            --set-env-vars=EXPENSE_SERVICE_URL=${{ steps.deploy_expense.outputs.expense_url }} \
+            --quiet
+
+      - name: Show deployed URLs
+        run: |
+          echo "Expense Service: ${{ steps.deploy_expense.outputs.expense_url }}"
+          gcloud run services describe ${{ env.SUMMARY_SERVICE }} \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)'
