@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build Docker images
         run: |
@@ -21,6 +21,34 @@ jobs:
 
       - name: Run service smoke tests
         run: |
+          set -euo pipefail
+
+          cleanup() {
+            echo "--- expense-service logs ---"
+            docker logs expense-service || true
+            echo "--- summary-service logs ---"
+            docker logs summary-service || true
+          }
+
+          trap cleanup ERR
+
+          wait_for_url() {
+            local url="$1"
+            local retries=30
+            local delay=2
+
+            for ((i=1; i<=retries; i++)); do
+              if curl -fsS "$url" >/dev/null; then
+                echo "Ready: $url"
+                return 0
+              fi
+              sleep "$delay"
+            done
+
+            echo "Timed out waiting for $url"
+            return 1
+          }
+
           docker network create expense-net
 
           docker run -d --rm \
@@ -36,12 +64,8 @@ jobs:
             -p 8001:8080 \
             summary-service:ci
 
-          for i in {1..20}; do
-            if curl -fsS http://127.0.0.1:8000/expenses >/dev/null; then
-              break
-            fi
-            sleep 2
-          done
+          wait_for_url http://127.0.0.1:8000/expenses
+          wait_for_url http://127.0.0.1:8001/summary
 
           curl -fsS http://127.0.0.1:8000/expenses
           curl -fsS http://127.0.0.1:8001/summary
